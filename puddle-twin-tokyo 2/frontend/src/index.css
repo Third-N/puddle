@@ -1,0 +1,42 @@
+:root {
+  --color-primary: #1d4ed8;
+  --color-primary-dark: #1e3a8a;
+  --color-accent-green: #16a34a;
+  --color-accent-green-dark: #15803d;
+  --color-gray: #6b7280;
+  --color-danger: #dc2626;
+  --color-warning: #f59e0b;
+  --color-border: #e5e7eb;
+  --color-bg: #f8fafc;
+  --shadow-panel: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    'Hiragino Kaku Gothic ProN',
+    'Noto Sans JP',
+    'Yu Gothic',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: #0f172a;
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
