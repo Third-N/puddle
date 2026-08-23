@@ -1,0 +1,37 @@
+# Node / frontend
+node_modules/
+dist/
+# 静的サイト版のためにバックエンドから複製したデータ。
+# frontend/scripts/sync-data.mjs で作り直せる。
+frontend/public/data/
+dist-ssr/
+*.local
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Python / backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# 取得元から取り直せる生データ（標高タイル・OSM）。
+# backend/data/generated/ は、ネットワーク無しでもAPIが起動できるよう意図的にコミットする。
+backend/data/cache/
+
+# Editors / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# 発表スライド(docs/slides.html)とPDFは生成物だが、
+# 発表当日にリポジトリから直接落とせるようコミットしている。
+# 作り直しは docs/build_slides.py と docs/build_pdf.py。
+docs/*.pdf

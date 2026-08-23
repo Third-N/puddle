@@ -1,6 +1,8 @@
 import type { LatLng } from '../types';
 
-const EARTH_RADIUS_M = 6371000;
+// バックエンド(app/geo.py)と同じ値。静的サイト版はブラウザ側で距離を出すので、
+// ここがずれるとAPI版と表示距離が食い違う。
+const EARTH_RADIUS_M = 6378137;
 
 export function toRad(deg: number): number {
   return (deg * Math.PI) / 180;

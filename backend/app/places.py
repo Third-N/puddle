@@ -90,3 +90,34 @@ class PlaceIndex:
             label = f"{name} 付近"
 
         return {"label": label, "kind": kind, "distanceM": round(distance)}
+
+    def search(self, query: str, limit: int = 8) -> list[dict]:
+        """地点名の部分一致で候補を返す。
+
+        地図をクリックしてもらう前提だと、行き先が決まっている人ほど使いにくい。
+        駅名や施設名から選べるようにする。
+        並び順は、前方一致 → 駅・施設・ビルの順 → 名前の短い順。
+        短い名前のほうが、その地域を代表する呼び名であることが多い。
+        """
+        needle = query.strip().lower()
+        if not needle:
+            return []
+
+        kind_order = {"station": 0, "landmark": 1, "building": 2}
+        hits = []
+        for place in self.places:
+            name = place["name"].lower()
+            if needle not in name:
+                continue
+            hits.append((0 if name.startswith(needle) else 1, kind_order[place["kind"]], len(name), place))
+
+        hits.sort(key=lambda item: item[:3])
+        return [
+            {
+                "label": h[3]["name"],
+                "kind": h[3]["kind"],
+                "lat": h[3]["lat"],
+                "lng": h[3]["lon"],
+            }
+            for h in hits[:limit]
+        ]

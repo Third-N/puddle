@@ -20,7 +20,14 @@ from .config import (
     RISK_RASTER,
     WALK_GRAPH,
 )
-from .models import DangerPoint, LatLng, PlaceLabel, RouteResult, SearchResult
+from .models import (
+    DangerPoint,
+    LatLng,
+    PlaceLabel,
+    PlaceSuggestion,
+    RouteResult,
+    SearchResult,
+)
 from .network import WalkGraph, load_walk_graph
 from .places import PlaceIndex
 
@@ -111,6 +118,10 @@ class PuddleService:
             )
         return results
 
+    def suggest_places(self, query: str, limit: int = 8) -> list[PlaceSuggestion]:
+        """地点名の候補を返す。入力欄の補完に使う。"""
+        return [PlaceSuggestion(**p) for p in self.places.search(query, limit)]
+
     def search(
         self, origin: LatLng, destination: LatLng, intensity: str
     ) -> SearchResult:
@@ -134,6 +145,7 @@ class PuddleService:
                 distanceM=round(route.distance_m),
                 durationMin=route.duration_min,
                 riskScore=route.risk_score,
+                floodOverlapPct=route.flood_overlap_pct,
                 path=[LatLng(lat=lat, lng=lon) for lon, lat in route.path],
             )
             for route_id, route in found.items()

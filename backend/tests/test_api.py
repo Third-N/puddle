@@ -12,6 +12,7 @@ YURAKUCHO_STATION = {"lat": 35.6751, "lng": 139.7628}
 HIBIYA = {"lat": 35.6740, "lng": 139.7595}
 KYOBASHI = {"lat": 35.6777, "lng": 139.7706}
 OSAKA_STATION = {"lat": 34.7024, "lng": 135.4959}
+DEMO_AREA_BOUNDS = {"minLat": 35.6700, "minLng": 139.7570, "maxLat": 35.6870, "maxLng": 139.7760}
 
 
 @pytest.fixture(scope="module")
@@ -173,3 +174,35 @@ def test_point_far_from_any_road_is_rejected(client):
     )
     assert response.status_code == 400
     assert "歩ける道" in response.json()["detail"]
+
+
+def test_search_finds_stations_first(client):
+    body = client.get("/api/search", params={"q": "東京"}).json()
+    assert body, "候補が1件も返っていない"
+    assert body[0]["label"] == "東京駅"
+    assert body[0]["kind"] == "station"
+    for hit in body:
+        assert "東京" in hit["label"]
+        assert DEMO_AREA_BOUNDS["minLat"] <= hit["lat"] <= DEMO_AREA_BOUNDS["maxLat"]
+
+
+def test_search_with_empty_query_returns_nothing(client):
+    assert client.get("/api/search", params={"q": "   "}).json() == []
+
+
+def test_routes_report_overlap_with_tokyo_flood_forecast(client):
+    """東京都の浸水予想と重なる区間の割合を返す。回避ルートのほうが小さいはず。"""
+    body = search(client, TOKYO_STATION, YURAKUCHO_STATION)
+    shortest = next(r for r in body["routes"] if r["id"] == "shortest")
+    avoid = next(r for r in body["routes"] if r["id"] == "avoid")
+
+    assert 0 <= shortest["floodOverlapPct"] <= 100
+    assert 0 <= avoid["floodOverlapPct"] <= 100
+    assert avoid["floodOverlapPct"] <= shortest["floodOverlapPct"]
+
+
+def test_hazard_reason_cites_tokyo_data_when_available(client):
+    """都の予想が付いている危険地点は、その根拠を文面に出す。"""
+    body = search(client, TOKYO_STATION, YURAKUCHO_STATION, "heavy")
+    reasons = [p["reason"] for p in body["dangerPoints"]]
+    assert any("東京都の浸水予想" in r for r in reasons)

@@ -1,5 +1,6 @@
-import { AlertTriangle, Footprints, MapPin, Navigation2, RotateCcw, Search } from 'lucide-react';
-import type { Banner, RainIntensity, RouteResult, SearchResult, SearchStatus } from '../types';
+import { AlertTriangle, Droplets, Footprints, RotateCcw, Search } from 'lucide-react';
+import { PlaceField } from './PlaceField';
+import type { Banner, LatLng, RainIntensity, RouteResult, SearchResult, SearchStatus } from '../types';
 
 interface SearchPanelProps {
   originLabel: string | null;
@@ -15,6 +16,8 @@ interface SearchPanelProps {
   banner: Banner | null;
   highlightedRouteId: 'shortest' | 'avoid' | null;
   onHighlightRoute: (id: 'shortest' | 'avoid' | null) => void;
+  onSelectPlace: (role: 'origin' | 'destination', point: LatLng, label: string) => void;
+  onClearPlace: (role: 'origin' | 'destination') => void;
 }
 
 const INTENSITY_OPTIONS: { value: RainIntensity; label: string }[] = [
@@ -61,6 +64,10 @@ function RouteCard({
             危険度 {route.riskScore}%
           </span>
         </span>
+        <span className="route-card__flood" title="東京都の浸水予想で浸水が想定される区間の割合">
+          <Droplets size={13} />
+          都の浸水想定区間 {route.floodOverlapPct}%
+        </span>
       </span>
     </button>
   );
@@ -80,6 +87,8 @@ export function SearchPanel({
   banner,
   highlightedRouteId,
   onHighlightRoute,
+  onSelectPlace,
+  onClearPlace,
 }: SearchPanelProps) {
   const helperText =
     pickStage === 'origin'
@@ -93,21 +102,21 @@ export function SearchPanel({
       <h1 className="panel__title">水たまりゼロ東京</h1>
       <p className="panel__subtitle">雨の日も、濡れにくい道を。</p>
 
-      <div className="field">
-        <label className="field__label">
-          <MapPin size={16} className="field__icon field__icon--origin" />
-          出発地
-        </label>
-        <div className="field__value">{originLabel ?? '未選択'}</div>
-      </div>
+      <PlaceField
+        role="origin"
+        label="出発地"
+        value={originLabel}
+        onSelect={(point, label) => onSelectPlace('origin', point, label)}
+        onClear={() => onClearPlace('origin')}
+      />
 
-      <div className="field">
-        <label className="field__label">
-          <Navigation2 size={16} className="field__icon field__icon--destination" />
-          目的地
-        </label>
-        <div className="field__value">{destinationLabel ?? '未選択'}</div>
-      </div>
+      <PlaceField
+        role="destination"
+        label="目的地"
+        value={destinationLabel}
+        onSelect={(point, label) => onSelectPlace('destination', point, label)}
+        onClear={() => onClearPlace('destination')}
+      />
 
       <p className="panel__helper">{helperText}</p>
 

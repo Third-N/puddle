@@ -164,6 +164,8 @@
 
   /* 数値の並び */
   .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--ink-line); border: 1px solid var(--ink-line); }
+  /* 4つ並べるときは2×2にする。3列だと1マス空いて間が抜けて見える。 */
+  .facts--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fact { background: var(--ink); padding: clamp(14px, 1.8vw, 22px); display: flex; flex-direction: column; gap: 4px; }
   .fact dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mist); }
   .fact dd { margin: 0; font-family: var(--mono); font-weight: 600; font-size: clamp(20px, 2.4vw, 32px); font-variant-numeric: tabular-nums; color: var(--paper); }
@@ -203,6 +205,20 @@
   .swatch { width: 18px; height: 3px; }
   .swatch--dot { width: 9px; height: 9px; border-radius: 50%; }
 
+
+  /* 検証スライドの棒グラフ。値は validate_against_tokyo.py の出力。 */
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar { display: grid; grid-template-columns: 5.2em minmax(0, 1fr) 3.4em; align-items: center; gap: 12px; }
+  .bar__label { font-family: var(--mono); font-size: 11.5px; color: var(--mist); text-align: right; }
+  .bar__track { height: 15px; background: var(--ink-raised); border: 1px solid var(--ink-line); position: relative; }
+  .bar__fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #2E7FA8, var(--water)); }
+  .bar__value { font-family: var(--mono); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--paper); }
+  .bar__n { font-family: var(--mono); font-size: 10px; color: var(--mist); }
+
+  .headline-stat { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .headline-stat b { font-family: var(--mono); font-size: clamp(34px, 4.6vw, 62px); font-weight: 600; color: var(--water); line-height: 1; font-variant-numeric: tabular-nums; }
+  .headline-stat span { font-size: clamp(14px, 1.35vw, 17px); color: var(--paper); }
+
   /* ---- 表紙 ---- */
   .cover { position: absolute; inset: 0; padding: 0; display: none; }
   .cover[data-active] { display: block; animation: rise 620ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
@@ -225,6 +241,38 @@
   .nav__btn[disabled] { opacity: 0.32; cursor: default; }
   .nav__btn[disabled]:hover { border-color: var(--ink-line); color: var(--paper); }
 
+
+
+  /* ---- 印刷・PDF書き出し ----
+     画面では1枚ずつ切り替えるが、紙では全スライドを1ページずつ並べる。 */
+  @media print {
+    @page { size: 297mm 167mm; margin: 0; }
+
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    html, body { background: var(--ink); overflow: visible; height: auto; }
+    .deck { height: auto; overflow: visible; }
+
+    .slide, .cover {
+      position: relative;
+      inset: auto;
+      width: 297mm;
+      height: 167mm;
+      overflow: hidden;
+      animation: none !important;
+      break-after: page;
+      page-break-after: always;
+    }
+    .slide { display: grid; }
+    .cover { display: block; }
+    [data-slide]:last-child { break-after: auto; page-break-after: auto; }
+
+    /* 画面用の操作系は紙には出さない */
+    .rail, .nav { display: none; }
+
+    /* dvh は紙だとページ高さに対応するが、明示しておく */
+    .figure img { max-height: 92mm; }
+  }
 
   @media (max-width: 880px) {
     body { overflow: auto; }
@@ -280,6 +328,7 @@
             <span><i class="swatch" style="background:var(--route)"></i>水たまり回避ルート</span>
             <span><i class="swatch swatch--dot" style="background:var(--hazard)"></i>危険地点</span>
           </div>
+          <p class="note">地点は駅名・施設名でも探せます（OSMから865件）。出した結果はURLで共有でき、リンクを送れば同じ比較がそのまま開きます。</p>
         </div>
       </div>
     </div>
@@ -360,6 +409,38 @@
     <div class="foot"><p class="note">図の街路が浮かび上がって見えるのは、雨水が実際に道に沿って集まるためです。</p></div>
   </section>
 
+  <!-- 検証 -->
+  <section class="slide" data-slide>
+    <div class="head"><p class="eyebrow">検証</p></div>
+    <div class="body">
+      <div class="cols">
+        <div class="stack">
+          <h2>東京都の浸水予想と、<br>同じ場所を指した。</h2>
+          <p class="lede">東京都下水道局が公開している「浸水予想区域図（改定）浸水深・地盤高」と突き合わせました。対象地域内の <b style="color:var(--water)">26,154点</b> で照合しています。</p>
+          <div class="headline-stat">
+            <b>4.7<span style="font-size:0.42em">倍</span></b>
+            <span>危険度が上位10%の地点は、都の予想で<br>10cm以上浸かる割合が 44.8% ／ それ以外 9.6%</span>
+          </div>
+          <p class="note">入力そのものの確認として、都の地盤高と国土地理院DEM5Aの相関は r = 0.921、中央絶対差 10cm でした。</p>
+          <p class="note">照合したのは<b style="color:var(--paper)">地形だけ</b>から出した危険度です。実際のルート探索では、そこに都の予想を重ねた値を使っています。重ねた値で照合すると、答えを見てから答え合わせをすることになるためです。</p>
+        </div>
+        <div class="stack">
+          <h3>都の想定浸水深ごとの、私たちの危険度</h3>
+          <div class="bars">
+            <div class="bar"><span class="bar__label">浸水なし</span><span class="bar__track"><span class="bar__fill" style="width:24%"></span></span><span class="bar__value">0.059</span></div>
+            <div class="bar"><span class="bar__label">0〜10cm</span><span class="bar__track"><span class="bar__fill" style="width:23%"></span></span><span class="bar__value">0.058</span></div>
+            <div class="bar"><span class="bar__label">10〜30cm</span><span class="bar__track"><span class="bar__fill" style="width:42%"></span></span><span class="bar__value">0.104</span></div>
+            <div class="bar"><span class="bar__label">30〜50cm</span><span class="bar__track"><span class="bar__fill" style="width:59%"></span></span><span class="bar__value">0.147</span></div>
+            <div class="bar"><span class="bar__label">50cm〜1m</span><span class="bar__track"><span class="bar__fill" style="width:83%"></span></span><span class="bar__value">0.206</span></div>
+            <div class="bar"><span class="bar__label">1m以上</span><span class="bar__track"><span class="bar__fill" style="width:97%"></span></span><span class="bar__value">0.242</span></div>
+          </div>
+          <p class="note">浸水が深いほど危険度も上がります。ただし0〜10cmは「浸水なし」と区別がついていません。都のデータが表すのは街区が冠水する規模で、私たちが狙う歩道の水たまりとは尺度が違うためです。一致するのは<b style="color:var(--paper)">場所</b>であって、深さではありません。</p>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><p class="note">出典：東京都下水道局 浸水予想区域図（改定）神田川流域／再現手順は backend/scripts/validate_against_tokyo.py</p></div>
+  </section>
+
   <!-- 7 -->
   <section class="slide" data-slide>
     <div class="head"><p class="eyebrow">03 — ルートに落とす</p></div>
@@ -408,6 +489,35 @@
     <div class="foot"></div>
   </section>
 
+  <!-- 効果 -->
+  <section class="slide" data-slide>
+    <div class="head"><p class="eyebrow">どれだけ役に立つのか</p></div>
+    <div class="body">
+      <div class="cols">
+        <div class="stack">
+          <h2>1分の遠回りで、<br>7割が改善する。</h2>
+          <p class="lede">1件のデモではなく、対象地域内の <b style="color:var(--water)">400経路</b> で試しました。出発地と目的地は歩行ネットワークから無作為に選び、歩いて移動する距離（300m〜2km）に絞っています。</p>
+          <p class="note">再現手順は backend/scripts/measure_impact.py。中雨の想定です。</p>
+        </div>
+        <div class="stack">
+          <dl class="facts facts--pair">
+            <div class="fact"><dt>危険度が10pt以上下がる</dt><dd>72.5<span>%</span></dd></div>
+            <div class="fact"><dt>下がり幅の中央値</dt><dd>16<span>pt</span></dd></div>
+            <div class="fact"><dt>遠回りの中央値</dt><dd>44<span>m</span></dd></div>
+            <div class="fact"><dt>所要時間が変わらない</dt><dd>41.8<span>%</span></dd></div>
+          </dl>
+          <h3>東京都の浸水想定区間との重なり</h3>
+          <div class="bars">
+            <div class="bar"><span class="bar__label">最短</span><span class="bar__track"><span class="bar__fill" style="width:100%"></span></span><span class="bar__value">20.4%</span></div>
+            <div class="bar"><span class="bar__label">回避</span><span class="bar__track"><span class="bar__fill" style="width:50%"></span></span><span class="bar__value">10.1%</span></div>
+          </div>
+          <p class="note">都の予想で浸水するとされる区間を通る経路は全体の77.5%。その経路では、重なりがおよそ半分になります。地形からの推定だけでなく、行政のシミュレーションでも浸かるとされる場所を避けられている、ということです。</p>
+        </div>
+      </div>
+    </div>
+    <div class="foot"></div>
+  </section>
+
   <!-- 9 -->
   <section class="slide" data-slide>
     <div class="head"><p class="eyebrow">つくり</p></div>
@@ -425,6 +535,7 @@
             <h3>使ったオープンデータ</h3>
             <ul class="list">
               <li><b>国土地理院 DEM5A</b> — 5mメッシュ標高。窪地・流域・傾斜の計算に使用。</li>
+              <li><b>東京都下水道局 浸水予想区域図</b> — 想定浸水深・地盤高。推定の検証に使用（26,154点）。</li>
               <li><b>OpenStreetMap</b> — 歩行空間ネットワークと、駅・施設・ビル名（865件）。</li>
               <li><b>CARTO</b> — ベースマップ。</li>
             </ul>
@@ -435,7 +546,8 @@
               <span class="tag">React</span><span class="tag">TypeScript</span><span class="tag">Vite</span><span class="tag">MapLibre GL</span>
               <span class="tag">Python</span><span class="tag">FastAPI</span><span class="tag">NumPy</span>
             </div>
-            <p class="note">重い地形計算は事前に済ませ、起動時に一度だけ読み込みます。リクエストごとに行うのはダイクストラだけなので、検索中に外部サービスが落ちても影響しません。APIのテストは14件。</p>
+            <p class="note">重い地形計算は事前に済ませ、起動時に一度だけ読み込みます。リクエストごとに行うのはダイクストラだけなので、検索中に外部サービスが落ちても影響しません。APIのテストは18件。</p>
+            <p class="note">運用は、生成済みデータを載せたAPI1つだけ。地形は変わらないので再計算はほとんど要らず、更新が要るのはOSMと都のデータが改定されたときだけです。</p>
           </div>
         </div>
       </div>
@@ -456,8 +568,8 @@
         <div class="stack">
           <h3>次にやること</h3>
           <ul class="list list--mist">
-            <li>東京都の浸水実績データと突き合わせ、推定の妥当性を検証する</li>
             <li>アメダス等の実況雨量と連携し、3段階固定をやめる</li>
+            <li>都の浸水予想を、検証だけでなく危険度そのものに織り込む</li>
             <li>対象地域を広げる</li>
             <li>利用者からの「ここは溜まる」という投稿で補正する</li>
           </ul>
@@ -467,7 +579,7 @@
     </div>
     <div class="foot">
       <p class="note">水たまりゼロ東京 — Team Third N</p>
-      <p class="note">出典：国土地理院／OpenStreetMap contributors／CARTO</p>
+      <p class="note">出典：国土地理院／東京都下水道局／OpenStreetMap contributors／CARTO</p>
     </div>
   </section>
 
@@ -475,7 +587,7 @@
 
 <div class="rail"><div class="rail__fill" id="railFill"></div></div>
 <nav class="nav" aria-label="スライド操作">
-  <span class="nav__count" id="count">1 / 10</span>
+  <span class="nav__count" id="count">1 / 12</span>
   <button class="nav__btn" id="prev" type="button" aria-label="前のスライド" title="前へ（←）">‹</button>
   <button class="nav__btn" id="next" type="button" aria-label="次のスライド" title="次へ（→ / Space）">›</button>
 </nav>

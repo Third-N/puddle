@@ -107,3 +107,4 @@ for f in sorted(OUT.iterdir()):
     print(f.name, f"{f.stat().st_size/1024:.0f}KB")
 print("shortest", round(found["shortest"].distance_m), found["shortest"].risk_score,
       "| avoid", round(found["avoid"].distance_m), found["avoid"].risk_score)
+

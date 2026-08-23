@@ -1,0 +1,50 @@
+{
+ "demoArea": {
+  "minLat": 35.67,
+  "minLng": 139.757,
+  "maxLat": 35.687,
+  "maxLng": 139.776
+ },
+ "rainProfiles": {
+  "light": {
+   "label": "弱雨",
+   "multiplier": 0.55,
+   "mmPerHour": 3
+  },
+  "medium": {
+   "label": "中雨",
+   "multiplier": 1.0,
+   "mmPerHour": 10
+  },
+  "heavy": {
+   "label": "強雨",
+   "multiplier": 1.45,
+   "mmPerHour": 30
+  }
+ },
+ "walkMetersPerMin": 78.0,
+ "avoidAlpha": 4.0,
+ "puddleReferenceRisk": 0.35,
+ "exposureReferenceM": 500.0,
+ "maxSnapDistanceM": 120.0,
+ "hazardCorridorM": 130.0,
+ "hazardMaxResults": 40,
+ "levelHighThreshold": 0.62,
+ "levelMediumThreshold": 0.32,
+ "placeSearchRadiusM": {
+  "station": 300.0,
+  "landmark": 160.0,
+  "building": 70.0,
+  "street": 45.0
+ },
+ "routeStyles": {
+  "shortest": {
+   "label": "最短ルート",
+   "color": "#6b7280"
+  },
+  "avoid": {
+   "label": "水たまり回避ルート",
+   "color": "#16a34a"
+  }
+ }
+}
