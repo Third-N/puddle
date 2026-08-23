@@ -22,6 +22,7 @@ from .models import (
     ErrorResponse,
     LatLng,
     PlaceLabel,
+    PlaceSuggestion,
     RouteRequest,
     SearchResult,
 )
@@ -120,6 +121,14 @@ async def place(lat: float, lng: float) -> PlaceLabel:
     if "service" not in _state:
         raise HTTPException(status_code=503, detail="データを読み込み中です")
     return service().describe_point(LatLng(lat=lat, lng=lng))
+
+
+@app.get("/api/search", response_model=list[PlaceSuggestion])
+async def search_places(q: str, limit: int = 8) -> list[PlaceSuggestion]:
+    """地点名で候補を返す。入力欄の補完に使う。"""
+    if "service" not in _state:
+        raise HTTPException(status_code=503, detail="データを読み込み中です")
+    return service().suggest_places(q, max(1, min(limit, 20)))
 
 
 @app.post(

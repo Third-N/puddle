@@ -15,6 +15,9 @@ import numpy as np
 from . import geo, terrain
 from .config import (
     FLAT_MODIFIER_BASE,
+    RAIN_PROFILES,
+    TOKYO_DEPTH_SATURATION_M,
+    TOKYO_EVIDENCE_WEIGHT,
     FLAT_MODIFIER_RANGE,
     FLAT_SLOPE_SATURATION_DEG,
     FLOW_CALIBRATION_PERCENTILES,
@@ -35,11 +38,16 @@ class RiskModel:
     """危険度ラスタと、その根拠になった地形指標の束。"""
 
     grid: ElevationGrid
-    risk: np.ndarray  # 0..1 の素の危険度(雨量を掛ける前)
+    risk: np.ndarray  # 0..1 の危険度(雨量を掛ける前)。都の予想を重ねた後の値。
     sink: np.ndarray  # くぼ地の深さ[m]
     flow: np.ndarray  # 流域面積[m^2]
     slope: np.ndarray  # 傾斜[度]
     relative: np.ndarray  # 近傍平均との高低差[m]
+    # 地形だけから出した危険度。検証はこちらで行う。
+    # 都の予想を重ねた risk で検証すると、答えを見て答え合わせをすることになる。
+    risk_terrain: np.ndarray
+    # 東京都の想定浸水深[m]。データが無いところは NaN。
+    tokyo_depth: np.ndarray
 
     def sample_risk(self, lon: float, lat: float) -> float:
         return self.grid.sample(self.risk, lon, lat)
@@ -50,6 +58,7 @@ class RiskModel:
             "flow_m2": self.grid.sample(self.flow, lon, lat),
             "slope_deg": self.grid.sample(self.slope, lon, lat),
             "relative_m": self.grid.sample(self.relative, lon, lat),
+            "tokyo_depth_m": self.grid.sample(self.tokyo_depth, lon, lat),
         }
 
     def save(self, path: Path) -> None:
@@ -61,6 +70,8 @@ class RiskModel:
             flow=self.flow.astype(np.float32),
             slope=self.slope.astype(np.float32),
             relative=self.relative.astype(np.float32),
+            risk_terrain=self.risk_terrain.astype(np.float32),
+            tokyo_depth=self.tokyo_depth.astype(np.float32),
             elevation=self.grid.elevation.astype(np.float32),
             meta=np.array(
                 [
@@ -90,6 +101,8 @@ class RiskModel:
             flow=payload["flow"],
             slope=payload["slope"],
             relative=payload["relative"],
+            risk_terrain=payload["risk_terrain"],
+            tokyo_depth=payload["tokyo_depth"],
         )
 
 
@@ -136,7 +149,9 @@ def network_mask(grid: ElevationGrid, walk_graph) -> np.ndarray:
     return _dilate(mask, radius_cells)
 
 
-def build_risk_model(grid: ElevationGrid, walk_graph) -> RiskModel:
+def build_risk_model(
+    grid: ElevationGrid, walk_graph, tokyo_depth: np.ndarray | None = None
+) -> RiskModel:
     """標高グリッドから危険度ラスタを組み立てる。
 
     危険度 = (水が集まる度合い) × (水がはけない度合い) という形にしている。
@@ -177,10 +192,30 @@ def build_risk_model(grid: ElevationGrid, walk_graph) -> RiskModel:
     )
     drainage_penalty = FLAT_MODIFIER_BASE + FLAT_MODIFIER_RANGE * flat_score
 
-    risk = np.clip(_smooth(convergence * drainage_penalty, radius=1), 0.0, 1.0)
+    risk_terrain = np.clip(_smooth(convergence * drainage_penalty, radius=1), 0.0, 1.0)
+
+    if tokyo_depth is None:
+        tokyo_depth = np.full(grid.shape, np.nan, dtype=np.float32)
+
+    # 東京都の浸水予想を、行政による裏づけとして上乗せする。
+    # 残っている余地 (1 - 地形由来) に対して掛けるので、値が1を超えない。
+    # 下げ方向には効かせない。都のデータが無い＝安全、ではないため。
+    evidence = np.clip(
+        np.nan_to_num(tokyo_depth, nan=0.0) / TOKYO_DEPTH_SATURATION_M, 0.0, 1.0
+    )
+    risk = np.clip(
+        risk_terrain + TOKYO_EVIDENCE_WEIGHT * evidence * (1.0 - risk_terrain), 0.0, 1.0
+    )
 
     return RiskModel(
-        grid=grid, risk=risk, sink=sink, flow=flow, slope=slope, relative=relative
+        grid=grid,
+        risk=risk,
+        sink=sink,
+        flow=flow,
+        slope=slope,
+        relative=relative,
+        risk_terrain=risk_terrain,
+        tokyo_depth=tokyo_depth,
     )
 
 
@@ -210,6 +245,13 @@ def describe(metrics: dict[str, float], rain_label: str) -> str:
 
     if not sentences:
         sentences.append("雨水が集まりやすい地形です")
+
+    # 都の予想が付いている地点は、そう言えるほうが説得力がある
+    tokyo_depth = metrics.get("tokyo_depth_m", 0.0)
+    if tokyo_depth >= 0.05:
+        sentences.append(
+            f"東京都の浸水予想でも約{tokyo_depth * 100:.0f}cmの浸水が想定されています"
+        )
 
     return f"{rain_label}の想定：" + "。".join(sentences)
 
@@ -268,7 +310,11 @@ def extract_hazard_points(model: RiskModel, walk_graph) -> list[dict]:
 
 
 def to_geojson(points: list[dict]) -> dict:
-    """危険地点を GeoJSON FeatureCollection にする。"""
+    """危険地点を GeoJSON FeatureCollection にする。
+
+    判定理由は雨量ごとに書き出しておく。文面を組み立てる処理が
+    サーバーとブラウザの2か所に分かれると、必ず食い違うため。
+    """
     return {
         "type": "FeatureCollection",
         "features": [
@@ -279,6 +325,10 @@ def to_geojson(points: list[dict]) -> dict:
                 "properties": {
                     "id": point["id"],
                     "baseWeight": point["baseWeight"],
+                    "reasons": {
+                        key: describe(point["metrics"], profile["label"])
+                        for key, profile in RAIN_PROFILES.items()
+                    },
                     **point["metrics"],
                 },
             }
@@ -299,11 +349,13 @@ def from_geojson(collection: dict) -> list[dict]:
                 "lon": lon,
                 "lat": lat,
                 "baseWeight": properties["baseWeight"],
+                "reasons": properties.get("reasons", {}),
                 "metrics": {
                     "sink_m": properties.get("sink_m", 0.0),
                     "flow_m2": properties.get("flow_m2", 0.0),
                     "slope_deg": properties.get("slope_deg", 0.0),
                     "relative_m": properties.get("relative_m", 0.0),
+                    "tokyo_depth_m": properties.get("tokyo_depth_m", 0.0),
                 },
             }
         )

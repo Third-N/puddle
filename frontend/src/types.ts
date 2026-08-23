@@ -27,6 +27,8 @@ export interface RouteResult {
   durationMin: number;
   /** 0-100 */
   riskScore: number;
+  /** 東京都の浸水予想で浸水が想定される区間が、経路に占める割合（0-100） */
+  floodOverlapPct: number;
   path: LatLng[];
 }
 
@@ -41,3 +43,26 @@ export type SearchStatus = 'idle' | 'loading' | 'success' | 'error';
 export type Banner =
   | { kind: 'improved'; extraMinutes: number; riskReduction: number }
   | { kind: 'no-gain' };
+
+/** 地点検索の候補。 */
+export interface PlaceSuggestion {
+  label: string;
+  kind: 'station' | 'landmark' | 'building';
+  lat: number;
+  lng: number;
+}
+
+/** 座標に付ける呼び名。 */
+export interface PlaceLabel {
+  label: string;
+  kind: 'station' | 'landmark' | 'building' | 'street' | 'coordinate';
+  distanceM: number;
+}
+
+/** デモ対象地域の情報。 */
+export interface AreaInfo {
+  bounds: { minLat: number; minLng: number; maxLat: number; maxLng: number };
+  center: LatLng;
+  intensities: { value: RainIntensity; label: string; mmPerHour: number }[];
+  hazardCount: number;
+}

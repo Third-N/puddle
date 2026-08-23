@@ -44,6 +44,9 @@ class RouteResult(BaseModel):
     distanceM: int
     durationMin: int
     riskScore: int = Field(..., description="そのルートで水たまりに出くわす推定確率(0-100)")
+    floodOverlapPct: int = Field(
+        0, description="東京都の浸水予想で浸水が想定される区間が経路に占める割合(0-100)"
+    )
     path: list[LatLng]
 
 
@@ -58,6 +61,15 @@ class PlaceLabel(BaseModel):
     label: str
     kind: Literal["station", "landmark", "building", "street", "coordinate"]
     distanceM: int
+
+
+class PlaceSuggestion(BaseModel):
+    """地点検索の候補1件。"""
+
+    label: str
+    kind: Literal["station", "landmark", "building"]
+    lat: float
+    lng: float
 
 
 class AreaInfo(BaseModel):

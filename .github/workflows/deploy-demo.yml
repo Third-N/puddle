@@ -1,0 +1,61 @@
+# デモを GitHub Pages に公開する。
+#
+# 静的サイト版はブラウザ側で経路探索を行うので、サーバーを立てずに動く。
+# 経路探索に必要なデータ(backend/data/generated)はリポジトリに入っているため、
+# ビルド中に国土地理院やOverpassへ取りに行くこともない。
+#
+# 初回だけ、リポジトリの Settings → Pages → Source を
+# "GitHub Actions" に切り替える必要がある。
+name: デモを公開
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は1つずつ。走行中に新しい push が来たら古いほうを止める。
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 依存関係をインストール
+        run: npm ci
+        working-directory: frontend
+
+      - name: 静的サイトをビルド
+        run: npm run build:static
+        working-directory: frontend
+        env:
+          # GitHub Pages ではリポジトリ名がURLのパスに入る
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

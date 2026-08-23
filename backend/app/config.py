@@ -18,6 +18,8 @@ HAZARD_GEOJSON = GENERATED_DIR / "hazards.geojson"
 RISK_RASTER = GENERATED_DIR / "risk_raster.npz"
 WALK_GRAPH = GENERATED_DIR / "walk_graph.json"
 PLACES_JSON = GENERATED_DIR / "places.json"
+ENGINE_JSON = GENERATED_DIR / "engine.json"
+TOKYO_FLOOD_CSV = GENERATED_DIR / "tokyo_flood_demo_area.csv"
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,14 @@ DEMO_AREA = BBox(min_lat=35.6700, min_lon=139.7570, max_lat=35.6870, max_lon=139
 GSI_DEM_TYPES = ("dem5a", "dem5b", "dem10b")
 GSI_DEM_ZOOM = 15
 GSI_DEM_URL = "https://cyberjapandata.gsi.go.jp/xyz/{dem}/{z}/{x}/{y}.txt"
+
+# 東京都下水道局「浸水予想区域図(改定) 浸水深・地盤高」神田川流域(南側)。
+# 危険度の推定が、都の水理シミュレーションと整合するかの検証に使う。
+# https://catalog.data.metro.tokyo.lg.jp/dataset/t000010d0000000129
+TOKYO_FLOOD_URL = (
+    "https://www.opendata.metro.tokyo.lg.jp/gesui/R3/shinsuiyosou/"
+    "1_kandakaiseicsvsouth.csv"
+)
 
 # OpenStreetMap 歩行空間ネットワーク
 OVERPASS_ENDPOINTS = (
@@ -84,6 +94,15 @@ FLOW_CALIBRATION_PERCENTILES = (50.0, 97.0)
 # 加算にすると「どこも平坦」な都心部で全区間に同じ下駄を履かせてしまう。
 FLAT_MODIFIER_BASE = 0.65
 FLAT_MODIFIER_RANGE = 0.35
+
+# 東京都の浸水予想を、地形由来の危険度に重ねるときの設定。
+#   FILL_RADIUS   : 都のメッシュ(約12.5m間隔)を面に広げる半径
+#   SATURATION    : この浸水深で、都側の裏づけが最大になる
+#   EVIDENCE_W    : 裏づけが最大のとき、危険度をどこまで引き上げるか
+# 都のデータは危険度を下げることはしない。あくまで上乗せの根拠として扱う。
+TOKYO_DEPTH_FILL_RADIUS_M = 8.0
+TOKYO_DEPTH_SATURATION_M = 0.5
+TOKYO_EVIDENCE_WEIGHT = 0.45
 
 # 回避ルートのコスト関数 cost = 距離 * (1 + AVOID_ALPHA * 危険度)
 AVOID_ALPHA = 4.0

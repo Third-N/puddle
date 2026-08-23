@@ -32,6 +32,8 @@ class Route:
     path: list[tuple[float, float]]  # [(lon, lat), ...]
     distance_m: float
     risk_score: int  # 0..100
+    # 東京都の浸水予想で浸水が想定されている区間が、経路に占める割合(0..100)
+    flood_overlap_pct: int = 0
 
     @property
     def duration_min(self) -> int:
@@ -55,6 +57,17 @@ def annotate_edge_risk(graph: WalkGraph, model: RiskModel) -> None:
         ]
         edge["risk"] = round(float(np.mean(samples)), 4)
         edge["riskMax"] = round(float(np.max(samples)), 4)
+
+        # 東京都の浸水予想で、浸水が想定されている点の割合を辺ごとに持つ。
+        # 「この道は都の予想でも浸かる」と言えるかどうかの判断に使う。
+        depths = [
+            model.grid.sample(model.tokyo_depth, lon, lat)
+            for lon, lat in geo.interpolate_points(
+                lon1, lat1, lon2, lat2, step_m=EDGE_SAMPLE_STEP_M
+            )
+        ]
+        edge["flood"] = round(float(np.mean([d > 0.0 for d in depths])), 4)
+        edge["floodMax"] = round(float(np.max(depths)), 3)
 
 
 def _effective_risk(edge: dict, rain_multiplier: float) -> float:
@@ -118,6 +131,21 @@ def _edges_along(graph: WalkGraph, node_path: list[int]) -> list[dict]:
     return edges
 
 
+def flood_overlap(edges: list[dict]) -> int:
+    """東京都の浸水予想で浸水する区間が、経路に占める割合(%)。
+
+    地形からの推定とは別に、行政のシミュレーションでも浸かるとされている
+    区間をどれだけ通るか。回避できているかを、外部の根拠で示せる。
+    """
+    if not edges:
+        return 0
+    lengths = np.array([edge["length"] for edge in edges], dtype=float)
+    flooded = np.array([edge.get("flood", 0.0) for edge in edges], dtype=float)
+    if lengths.sum() <= 0:
+        return 0
+    return int(round(float((flooded * lengths).sum() / lengths.sum()) * 100))
+
+
 def score_route(edges: list[dict], rain_multiplier: float) -> int:
     """ルート全体の危険度を 0..100 で表す。
 
@@ -177,6 +205,7 @@ def find_routes(
             path=coords,
             distance_m=geo.path_length_m(coords),
             risk_score=score_route(edges, rain_multiplier),
+            flood_overlap_pct=flood_overlap(edges),
         )
 
     return routes

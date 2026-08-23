@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:static": "node scripts/sync-data.mjs && vite --mode static",
     "build": "tsc -b && vite build",
+    "sync-data": "node scripts/sync-data.mjs",
+    "build:static": "node scripts/sync-data.mjs && tsc -b && vite build --mode static",
     "preview": "vite preview"
   },
   "dependencies": {
